@@ -7,6 +7,7 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/m-manu/go-find-duplicates/bytesutil"
 	"github.com/m-manu/go-find-duplicates/entity"
 	"github.com/m-manu/go-find-duplicates/fmte"
@@ -33,6 +34,7 @@ const (
 	exitCodeInvalidOutputMode
 	exitCodeReportFileCreationFailed
 	exitCodeWritingToReportFileFailed
+	exitCodeClearFile
 )
 
 //go:embed default_exclusions.txt
@@ -126,7 +128,7 @@ func setupOutputModeOpt() {
 	for outputMode, description := range entity.OutputModes {
 		sb.WriteString(fmt.Sprintf("%5s = %s\n", outputMode, description))
 	}
-	outputModeStrPtr := flag.StringP("output", "o", entity.OutputModeTextFile, sb.String())
+	outputModeStrPtr := flag.StringP("output", "o", entity.OutputModeStdOut, sb.String())
 	flags.getOutputMode = func() string {
 		outputModeStr := strings.ToLower(strings.TrimSpace(*outputModeStrPtr))
 		if _, exists := entity.OutputModes[outputModeStr]; !exists {
@@ -234,6 +236,21 @@ func main() {
 		fmte.PrintfErr("error while reporting to file: %+v\n", err)
 		os.Exit(exitCodeWritingToReportFileFailed)
 	}
+
+	isClear := false
+	prompt := &survey.Confirm{
+		Message: "Whether to clear duplicate files?",
+	}
+	survey.AskOne(prompt, &isClear)
+
+	if isClear {
+		err = clearDuplicates(duplicates)
+		if err != nil {
+			fmte.PrintfErr("error clear file: %+v\n", err)
+			os.Exit(exitCodeClearFile)
+		}
+	}
+
 }
 
 func createReportFileIfApplicable(runID string, outputMode string) (reportFileName string) {
